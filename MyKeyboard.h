@@ -1,0 +1,67 @@
+/*
+Copyright 2021 m4mmon
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
+#ifndef _MyKeyboard_h__
+#define _MyKeyboard_h__
+
+#include <hidboot.h>
+
+#include "MyKbdRptParser.h"
+
+class MyKeyboard: public HIDBoot<USB_HID_PROTOCOL_KEYBOARD>
+{
+  public:
+
+    MyKeyboard(USB * ipUsb):
+      HIDBoot<USB_HID_PROTOCOL_KEYBOARD>(ipUsb),
+      _nPrevLedsState(0xFF)
+    {
+      // register physical keyboard report parser
+
+      SetReportParser(0, &_keybParser);
+    }
+
+    void Task()
+    {
+      // if keyboard is ready
+
+      if (isReady())
+      {
+        // get computer provided leds state
+
+        uint8_t nCurrLeds = BootKeyboard.getLeds();
+
+        // if something changed
+
+        if (nCurrLeds != _nPrevLedsState)
+        {
+          // keep track of new value
+
+          _nPrevLedsState = nCurrLeds;
+
+          // and update leds
+
+          _keybParser.InitLedStates(this, nCurrLeds);
+        }
+      }
+    }
+
+  private:
+
+    // the physical keyboard report parser
+
+    MyKbdRptParser _keybParser;
+
+    // leds state
+
+    uint8_t _nPrevLedsState;
+};
+
+
+#endif
