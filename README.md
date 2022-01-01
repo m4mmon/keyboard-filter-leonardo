@@ -46,7 +46,7 @@ The following "mappings" are performed (key pressed: action/key combination sent
 * vol+/contrast+: vol+ consumer action (broghtness+ if shift)
 * sleep: meta-l consumer action (lock session shortcut)
 
-So the keys do not exactly match what it written on them, but that is up to you to map however you want.
+So the keys do not exactly match what is written on them, but that is up to you to map however you want.
 
 # Notes
 
