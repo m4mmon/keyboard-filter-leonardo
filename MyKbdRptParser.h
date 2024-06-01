@@ -1,11 +1,11 @@
 /*
-Copyright 2021 m4mmon
+  Copyright 2021, 2024 m4mmon
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+  The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 #ifndef _MyKbdRptParser_h__
 #define _MyKbdRptParser_h__
@@ -14,6 +14,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <HID-Settings.h>
 
 #include <hidboot.h>
+
+#define KBD_INPUT_TRACE 1
 
 // -----------------------------------------------------------------------------
 
@@ -29,6 +31,8 @@ const uint8_t _pnMinMaxData[]  = {0x08, 0x00, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00
 const uint8_t _pnPropsData[]   = {0x08, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00}; // win+i
 const uint8_t _pnLockData[]    = {0x08, 0x00, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00}; // win+l
 const uint8_t _pnTaskMgrData[] = {0x03, 0x00, 0x29, 0x00, 0x00, 0x00, 0x00, 0x00}; // ctrl+shift+esc
+const uint8_t _pnCtxMenuData[] = {0x00, 0x00, 0x65, 0x00, 0x00, 0x00, 0x00, 0x00}; // context menu
+const uint8_t _pnRCtlData[]    = {0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; // right control
 
 // -----------------------------------------------------------------------------
 
@@ -46,17 +50,19 @@ const uint8_t _pnTaskMgrData[] = {0x03, 0x00, 0x29, 0x00, 0x00, 0x00, 0x00, 0x00
 #define IsRGUI(code)    ((code) & 0x80)
 #define IsGUI(code)     ((code) & 0x88)
 
-#define SendExec()    SendKeyboardReportToComputer(_pnExecData,    8)
-#define SendCut()     SendKeyboardReportToComputer(_pnCutData,     8)
-#define SendCopy()    SendKeyboardReportToComputer(_pnCopyData,    8)
-#define SendPaste()   SendKeyboardReportToComputer(_pnPasteData,   8)
-#define SendFind()    SendKeyboardReportToComputer(_pnFindData,    8)
-#define SendUndo()    SendKeyboardReportToComputer(_pnUndoData,    8)
-#define SendRedo()    SendKeyboardReportToComputer(_pnRedoData,    8)
-#define SendMinMax()  SendKeyboardReportToComputer(_pnMinMaxData,  8)
-#define SendProps()   SendKeyboardReportToComputer(_pnPropsData,   8)
-#define SendLock()    SendKeyboardReportToComputer(_pnLockData,    8)
-#define SendTaskMgr() SendKeyboardReportToComputer(_pnTaskMgrData, 8)
+#define SendExec()        SendKeyboardReportToComputer(_pnExecData,    8)
+#define SendCut()         SendKeyboardReportToComputer(_pnCutData,     8)
+#define SendCopy()        SendKeyboardReportToComputer(_pnCopyData,    8)
+#define SendPaste()       SendKeyboardReportToComputer(_pnPasteData,   8)
+#define SendFind()        SendKeyboardReportToComputer(_pnFindData,    8)
+#define SendUndo()        SendKeyboardReportToComputer(_pnUndoData,    8)
+#define SendRedo()        SendKeyboardReportToComputer(_pnRedoData,    8)
+#define SendMinMax()      SendKeyboardReportToComputer(_pnMinMaxData,  8)
+#define SendProps()       SendKeyboardReportToComputer(_pnPropsData,   8)
+#define SendLock()        SendKeyboardReportToComputer(_pnLockData,    8)
+#define SendTaskMgr()     SendKeyboardReportToComputer(_pnTaskMgrData, 8)
+#define SendContextMenu() SendKeyboardReportToComputer(_pnCtxMenuData, 8)
+#define SendRControl()    SendKeyboardReportToComputer(_pnRCtlData,    8)
 
 // -----------------------------------------------------------------------------
 
@@ -71,17 +77,39 @@ class MyKbdRptParser : public KeyboardReportParser
 
     // sets leds
     
-    inline uint8_t InitLedStates(USBHID* ipHid, uint8_t inLeds)
-    {
-      kbdLockingKeys.bLeds = inLeds;
-      return SetKeyboardLeds(ipHid, inLeds);
-    }
+    uint8_t InitLedStates(USBHID* ipHid, uint8_t inLeds);
 
   private:
+
+    inline void StartErrorAnim()
+    {
+      _nErrLEDAnimation = 1;
+      _nAnimStartTime = millis();
+    }
+
+    inline void EndErrorAnim()
+    {
+      _nErrLEDAnimation = 0;
+    }
+
+    inline void StartComposeAnim()
+    {
+      _nComposeBlink = 1;
+      _nAnimStartTime = millis();
+    }
+
+    inline void EndComposeAnim()
+    {
+      _nComposeBlink = 0;
+    }
 
     // blinks "compose" led.
 
     void BlinkLedCompose(USBHID* ipHid);
+
+    // blinks all leds.
+
+    void BlinkAllLeds(USBHID* ipHid);
 
     // handles "special" keys on Sun type 6/7 keyboards
     // returns 1 if something has been handled, else 0.
@@ -149,6 +177,10 @@ class MyKbdRptParser : public KeyboardReportParser
     // flag indicating a consumer report with a key has been sent
 
     uint8_t _nConsumerKeySent;
+
+    unsigned long _nAnimStartTime;
+    uint8_t _nErrLEDAnimation;
+    uint8_t _nComposeBlink;
 };
 
 // -----------------------------------------------------------------------------
