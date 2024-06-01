@@ -103,14 +103,6 @@ class MyKbdRptParser : public KeyboardReportParser
       _nComposeBlink = 0;
     }
 
-    // blinks "compose" led.
-
-    void BlinkLedCompose(USBHID* ipHid);
-
-    // blinks all leds.
-
-    void BlinkAllLeds(USBHID* ipHid);
-
     // handles "special" keys on Sun type 6/7 keyboards
     // returns 1 if something has been handled, else 0.
 
